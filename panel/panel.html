@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Token Inspector</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        padding: 0;
+        margin: 0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #1e1e1e;
+        color: #e0e0e0;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+        color: white;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        border-bottom: 1px solid #4a5568;
+      }
+
+      .header h2 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .header h2::before {
+        content: "🔐";
+        font-size: 18px;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .auto-refresh-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        background: rgba(255,255,255,0.1);
+        padding: 6px 12px;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+      }
+
+      .auto-refresh-toggle input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: #28a745;
+      }
+
+      .auto-refresh-toggle label {
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .content {
+        padding: 20px;
+        height: calc(100vh - 80px);
+        overflow-y: auto;
+      }
+
+      .stats-bar {
+        background: #2d3748;
+        border: 1px solid #4a5568;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      }
+
+      .stats-info {
+        font-size: 13px;
+        color: #a0aec0;
+      }
+
+      .stats-count {
+        font-weight: 600;
+        color: #e2e8f0;
+      }
+
+      .network-request {
+        background: #2d3748;
+        border: 1px solid #4a5568;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.2s ease;
+      }
+
+      .network-request:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        border-color: #667eea;
+      }
+
+      .request-header {
+        padding: 16px 20px;
+        background: #374151;
+        border-bottom: 1px solid #4a5568;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: background-color 0.2s ease;
+        user-select: none;
+      }
+
+      .request-header:hover {
+        background: #4b5563;
+      }
+
+      .network-request.expanded .request-header {
+        background: #667eea;
+        color: white;
+      }
+
+      .request-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+      }
+
+      .request-method {
+        background: #0366d6;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        min-width: 45px;
+        text-align: center;
+      }
+
+      .request-method.GET { background: #28a745; }
+      .request-method.POST { background: #fd7e14; }
+      .request-method.PUT { background: #6f42c1; }
+      .request-method.DELETE { background: #dc3545; }
+      .request-method.PATCH { background: #20c997; }
+
+      .request-url {
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        font-size: 12px;
+        color: #e2e8f0;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        background: rgba(255,255,255,0.05);
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
+
+      .network-request.expanded .request-url {
+        color: rgba(255,255,255,0.9);
+        background: rgba(255,255,255,0.1);
+      }
+
+      .request-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 12px;
+      }
+
+      .request-status {
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      .status-200 { background: #22543d; color: #68d391; }
+      .status-400 { background: #742a2a; color: #fc8181; }
+      .status-500 { background: #742a2a; color: #fc8181; }
+
+      .request-time {
+        color: #a0aec0;
+        font-size: 11px;
+        padding-left: 10px;
+      }
+
+      .expand-icon {
+        transition: transform 0.3s ease;
+        font-size: 12px;
+        color: #a0aec0;
+      }
+
+      .network-request.expanded .expand-icon {
+        transform: rotate(90deg);
+        color: white;
+      }
+
+      .request-details {
+        display: none;
+        background: #2d3748;
+      }
+
+      .request-details.expanded {
+        display: block;
+        animation: slideDown 0.3s ease;
+      }
+
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          max-height: 0;
+        }
+        to {
+          opacity: 1;
+          max-height: 1000px;
+        }
+      }
+
+      .token-tabs {
+        border-bottom: 1px solid #4a5568;
+        background: #374151;
+        display: flex;
+      }
+
+      .token-tab {
+        padding: 12px 20px;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        color: #a0aec0;
+        transition: all 0.2s ease;
+        position: relative;
+      }
+
+      .token-tab:hover {
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+      }
+
+      .token-tab.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+        background: #2d3748;
+        font-weight: 600;
+      }
+
+      .token-content {
+        display: none;
+        padding: 20px;
+      }
+
+      .token-content.active {
+        display: block;
+      }
+
+      .token-actions {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 8px 16px;
+        border: 1px solid #4a5568;
+        border-radius: 6px;
+        background: #374151;
+        color: #e2e8f0;
+        cursor: pointer;
+        font-size: 12px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        font-weight: 500;
+      }
+
+      .btn:hover {
+        background: #4b5563;
+        border-color: #667eea;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: #667eea;
+      }
+
+      .btn-primary:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+      }
+
+      .btn-success {
+        background: #28a745;
+        color: white;
+        border-color: #28a745;
+      }
+
+      .btn-success:hover {
+        background: #218838;
+        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+      }
+
+      .token-display {
+        background: #1a202c;
+        border: 1px solid #4a5568;
+        border-radius: 6px;
+        padding: 16px;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        font-size: 11px;
+        word-break: break-all;
+        max-height: 500px;
+        min-height: 120px;
+        overflow-y: auto;
+        line-height: 1.5;
+        position: relative;
+        color: #e2e8f0;
+        margin-top: 8px;
+      }
+
+      .token-header {
+        background: #374151;
+        color: #a0aec0;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 6px 12px;
+        margin: -16px -16px 12px -16px;
+        border-bottom: 1px solid #4a5568;
+        border-radius: 5px 5px 0 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .jwt-decoded {
+        background: #2d3748;
+        border: 1px solid #4a5568;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+
+      .jwt-section {
+        border-bottom: 1px solid #4a5568;
+      }
+
+      .jwt-section:last-child {
+        border-bottom: none;
+      }
+
+      .jwt-section h4 {
+        margin: 0;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #e2e8f0;
+        background: #374151;
+        border-bottom: 1px solid #4a5568;
+      }
+
+      .jwt-json {
+        padding: 16px;
+        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+        font-size: 11px;
+        white-space: pre-wrap;
+        line-height: 1.5;
+        background: #2d3748;
+        color: #e2e8f0;
+      }
+
+      .no-tokens {
+        text-align: center;
+        padding: 60px 20px;
+        color: #a0aec0;
+        background: #2d3748;
+        border-radius: 8px;
+        border: 1px solid #4a5568;
+      }
+
+      .no-tokens-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+
+      .no-tokens h3 {
+        margin: 0 0 8px 0;
+        color: #e2e8f0;
+        font-size: 16px;
+      }
+
+      .no-tokens p {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .refresh-btn {
+        background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .refresh-btn:hover {
+        background: linear-gradient(135deg, #357abd 0%, #2968a3 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+      }
+
+      .refresh-btn::before {
+        content: "🔄";
+        font-size: 12px;
+      }
+
+      .clear-btn {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .clear-btn:hover {
+        background: linear-gradient(135deg, #ee5a52 0%, #e74c3c 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+      }
+
+      .clear-btn::before {
+        content: "🗑️";
+        font-size: 12px;
+      }
+
+      /* Scrollbar styling */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #374151;
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #6b7280;
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+      }
+
+      /* Loading animation */
+      .loading {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid #4a5568;
+        border-top: 2px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="header">
+      <h2>Token Inspector</h2>
+      <div class="controls">
+        <div class="auto-refresh-toggle">
+          <input type="checkbox" id="auto-refresh" />
+          <label for="auto-refresh">Auto-refresh</label>
+        </div>
+        <button class="refresh-btn" id="manual-refresh">Refresh</button>
+        <button class="clear-btn" id="clear-all">Clear All</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="stats-bar" id="stats-bar" style="display: none;">
+        <div class="stats-info">
+          <span class="stats-count" id="request-count">0</span> requests with authorization tokens
+        </div>
+        <div class="stats-info">
+          Last updated: <span id="last-updated">Never</span>
+        </div>
+      </div>
+
+      <div id="requests-container">
+        <div class="no-tokens">
+          <div class="no-tokens-icon">🔍</div>
+          <h3>No Token Requests Found</h3>
+          <p>Make network requests with Authorization headers to see them here.<br>
+          The inspector will automatically detect and analyze tokens in real-time.</p>
+        </div>
+      </div>
+    </div>
+
+    <script src="panel.js"></script>
+  </body>
+</html>
