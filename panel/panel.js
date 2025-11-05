@@ -82,7 +82,9 @@ class TokenInspector {
 
   loadInitialRequests() {
     chrome.devtools.network.getHAR((harLog) => {
-      this.processHAREntries(harLog.entries);
+      if (harLog && harLog.entries) {
+        this.processHAREntries(harLog.entries);
+      }
       this.renderRequests();
       this.updateStats();
     });
@@ -90,7 +92,9 @@ class TokenInspector {
 
   refreshRequests() {
     chrome.devtools.network.getHAR((harLog) => {
-      this.processHAREntries(harLog.entries);
+      if (harLog && harLog.entries) {
+        this.processHAREntries(harLog.entries);
+      }
       this.renderRequests();
       this.updateStats();
     });
@@ -107,6 +111,9 @@ class TokenInspector {
   }
 
   processHAREntries(entries) {
+    if (!entries || !Array.isArray(entries)) {
+      return;
+    }
     entries.forEach(entry => {
       if (this.hasAuthorizationToken(entry.request)) {
         this.processRequest(entry);
